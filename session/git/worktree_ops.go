@@ -261,7 +261,8 @@ func CleanupWorktrees() error {
 }
 
 // setupClaudeDirectory creates a symlink to the source repository's .claude directory
-// so that worktrees can share Claude Code settings and hooks
+// so that worktrees can share Claude Code settings and hooks.
+// If .claude is tracked in git, skip symlinking to preserve tracked files.
 func (g *GitWorktree) setupClaudeDirectory() error {
 	sourceClaudeDir := filepath.Join(g.repoPath, ".claude")
 	worktreeClaudeDir := filepath.Join(g.worktreePath, ".claude")
@@ -269,6 +270,14 @@ func (g *GitWorktree) setupClaudeDirectory() error {
 	// Check if source repository has .claude directory
 	if _, err := os.Stat(sourceClaudeDir); os.IsNotExist(err) {
 		// Source doesn't have .claude directory, nothing to link
+		return nil
+	}
+
+	// Check if .claude is tracked in git - if so, skip symlink to preserve tracked files
+	// Git worktrees already handle tracked files correctly via checkout
+	output, err := g.runGitCommand(g.worktreePath, "ls-files", ".claude")
+	if err == nil && strings.TrimSpace(string(output)) != "" {
+		log.InfoLog.Printf(".claude is tracked in git, skipping symlink to preserve tracked files")
 		return nil
 	}
 
